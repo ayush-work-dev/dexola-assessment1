@@ -2,6 +2,7 @@ const express = require('express');
 const morgan = require('morgan');
 const cors = require('cors');
 const path = require('path');
+const { getWethTotalSupply } = require('./config/contractService');
 const killPort = require('kill-port');
 
 require('dotenv').config();
@@ -43,25 +44,42 @@ const checkPort = async (port, maxPort = 65535) => {
     require('./config/dbHandler.js').connect();
 
     /**
-     * @route    [HTTP_METHOD] /api/endpoint
-     * @desc     [Short summary of what this endpoint does, e.g., Reads or sets value in smart contract]
-     * @author   [Your Name]
-     * @access   [public/private/auth-required]
-     * @param    {Request}  req  - Express request object. [Describe relevant body/query/params fields]
+     * @route    GET /api/v1/wethApiTest
+     * @desc     Reads live token data (name, symbol, decimals, totalSupply) from the WETH smart contract on Ethereum mainnet
+     * @author   Ayush
+     * @access   public
+     * @param    {Request}  req  - Express request object. No body or query params required.
      * @param    {Response} res  - Express response object.
-     * @returns  {JSON}          [Describe the JSON structure returned]
-     * @throws   [Error conditions, e.g., 400 on invalid input, 500 on contract failure]
+     * @returns  {JSON}          { success: true, data: { contract, name, symbol, decimals, totalSupplyRaw, totalSupply } }
+     * @throws   500 if the RPC provider is unreachable or the contract call fails
      *
      * @example
      * // Example request
-     * curl -X POST http://localhost:3001/contract/value -H "Content-Type: application/json" -d '{"value": 42}'
+     * curl http://localhost:3001/api/v1/wethApiTest
      *
      * // Example response
      * {
-     *   "message": "Value updated",
-     *   "txHash": "0x..."
+     *   "success": true,
+     *   "data": {
+     *     "contract": "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2",
+     *     "name": "Wrapped Ether",
+     *     "symbol": "WETH",
+     *     "decimals": 18,
+     *     "totalSupplyRaw": "2166590294786816150758416",
+     *     "totalSupply": "2166590.294786816150758416"
+     *   }
      * }
      */
+    app.get('/api/v1/wethApiTest', async (req, res) => {
+        try {
+            const data = await getWethTotalSupply();
+            console.log('[wethApiTest] Fetched WETH data from Ethereum mainnet:', data);
+            res.json({ success: true, data });
+        } catch (err) {
+            console.error('[wethApiTest] Error fetching contract data:', err.message);
+            res.status(500).json({ success: false, error: err.message });
+        }
+    });
 
     // Serve static files in production
     if (process.env.NODE_ENV === 'production') {
